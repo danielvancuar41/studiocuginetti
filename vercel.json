@@ -1,0 +1,16 @@
+{
+  "functions": {
+    "api/process.js": {
+      "memory": 512,
+      "maxDuration": 30
+    },
+    "api/quiz.js": {
+      "memory": 256,
+      "maxDuration": 30
+    },
+    "api/study-plan.js": {
+      "memory": 256,
+      "maxDuration": 10
+    }
+  }
+}
