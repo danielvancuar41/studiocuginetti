@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Studiamoci 📚</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,700;0,900;1,300;1,700&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --cream: #f5f0e8;
+      --paper: #ede8dc;
+      --ink: #1a1612;
+      --ink-light: #4a4540;
+      --red: #c0392b;
+      --green: #2d6a4f;
+      --blue: #1a3a5c;
+      --gold: #b8860b;
+      --border: #c8c0b0;
+      --radius: 4px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--cream);
+      color: var(--ink);
+      font-family: 'Instrument Sans', sans-serif;
+      min-height: 100vh;
+      background-image:
+        radial-gradient(ellipse at 20% 20%, rgba(184,134,11,0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(26,58,92,0.06) 0%, transparent 50%);
+    }
+
+    /* Paper texture overlay */
+    body::after {
+      content: '';
+      position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+      opacity: 0.5;
+    }
+
+    .wrap { max-width: 860px; margin: 0 auto; padding: 0 1.5rem 4rem; }
+
+    /* ── Header ── */
+    header {
+      border-bottom: 2px solid var(--ink);
+      padding: 2.5rem 0 1.5rem;
+      margin-bottom: 2.5rem;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .logo {
+      font-family: 'Fraunces', serif;
+      font-weight: 900;
+      font-size: clamp(2.2rem, 5vw, 3.5rem);
+      line-height: 0.95;
+      letter-spacing: -0.03em;
+    }
+
+    .logo em { font-style: italic; color: var(--red); }
+
+    .tagline {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--ink-light);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-align: right;
+    }
+
+    /* ── Steps nav ── */
+    .steps-nav {
+      display: flex;
+      gap: 0;
+      margin-bottom: 2.5rem;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .step-btn {
+      flex: 1;
+      padding: 0.6rem 0.5rem;
+      text-align: center;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--ink-light);
+      background: var(--paper);
+      border: none;
+      border-right: 1px solid var(--border);
+      cursor: default;
+      transition: all 0.2s;
+    }
+
+    .step-btn:last-child { border-right: none; }
+    .step-btn.active { background: var(--ink); color: var(--cream); }
+    .step-btn.done { background: var(--paper); color: var(--green); }
+
+    /* ── Cards ── */
+    .card {
+      display: none;
+      background: white;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 3px 3px 0 var(--border);
+      animation: appear 0.3s ease;
+    }
+
+    .card.visible { display: block; }
+
+    @keyframes appear {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .card-title {
+      font-family: 'Fraunces', serif;
+      font-weight: 700;
+      font-size: 1.4rem;
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* ── Upload ── */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 3rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s;
+      background: var(--cream);
+    }
+
+    .upload-zone:hover, .upload-zone.over {
+      border-color: var(--ink);
+      background: var(--paper);
+    }
+
+    .upload-zone input {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+
+    .upload-icon {
+      font-size: 2.5rem;
+      margin-bottom: 0.75rem;
+      display: block;
+    }
+
+    .upload-main {
+      font-family: 'Fraunces', serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 0.3rem;
+    }
+
+    .upload-sub {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--ink-light);
+      letter-spacing: 0.04em;
+    }
+
+    .file-name {
+      margin-top: 0.75rem;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--green);
+      font-weight: 500;
+    }
+
+    /* ── Options ── */
+    .section-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-light);
+      margin-bottom: 0.6rem;
+    }
+
+    .opts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .opt {
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.75rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: var(--cream);
+      user-select: none;
+    }
+
+    .opt:hover { border-color: var(--ink); }
+
+    .opt.on {
+      border-color: var(--ink);
+      background: var(--ink);
+      color: var(--cream);
+    }
+
+    .opt-icon { font-size: 1.2rem; margin-bottom: 0.3rem; display: block; }
+    .opt-name { font-weight: 600; font-size: 0.85rem; display: block; }
+    .opt-desc { font-size: 0.72rem; opacity: 0.7; margin-top: 0.1rem; display: block; }
+
+    /* ── Pills ── */
+    .pills { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+
+    .pill {
+      padding: 0.3rem 0.85rem;
+      border: 1.5px solid var(--border);
+      border-radius: 100px;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.72rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: var(--cream);
+      color: var(--ink-light);
+    }
+
+    .pill:hover { border-color: var(--ink); color: var(--ink); }
+    .pill.on { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.65rem 1.5rem;
+      border-radius: var(--radius);
+      font-family: 'Instrument Sans', sans-serif;
+      font-weight: 600;
+      font-size: 0.9rem;
+      border: 1.5px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-primary {
+      background: var(--ink);
+      color: var(--cream);
+      border-color: var(--ink);
+    }
+
+    .btn-primary:hover { background: #2d2820; transform: translateY(-1px); box-shadow: 2px 3px 0 var(--border); }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--ink);
+      border-color: var(--border);
+    }
+
+    .btn-ghost:hover { border-color: var(--ink); }
+
+    .row { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
+
+    /* ── Result ── */
+    .result-box {
+      background: var(--cream);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      font-size: 0.875rem;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      max-height: 480px;
+      overflow-y: auto;
+      font-family: 'Instrument Sans', sans-serif;
+    }
+
+    .result-box::-webkit-scrollbar { width: 5px; }
+    .result-box::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Timeline ── */
+    .timeline { display: flex; flex-direction: column; gap: 0.4rem; max-height: 380px; overflow-y: auto; }
+
+    .tl-item {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.6rem 0.9rem;
+      border-radius: var(--radius);
+      border-left: 3px solid transparent;
+      background: var(--cream);
+      font-size: 0.85rem;
+    }
+
+    .tl-item.study { border-color: var(--gold); }
+    .tl-item.revision { border-color: var(--blue); }
+    .tl-item.simulation { border-color: var(--red); }
+
+    .tl-date {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--ink-light);
+      min-width: 90px;
+    }
+
+    /* ── Chapters ── */
+    .chapter-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0;
+      font-size: 0.85rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .chapter-num {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--gold);
+      font-weight: 500;
+      min-width: 1.5rem;
+    }
+
+    .chapter-rm {
+      margin-left: auto;
+      background: none;
+      border: none;
+      color: var(--border);
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 0 0.2rem;
+      transition: color 0.15s;
+    }
+
+    .chapter-rm:hover { color: var(--red); }
+
+    /* ── Quiz ── */
+    .quiz-q {
+      background: var(--cream);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .quiz-q-text { font-weight: 600; margin-bottom: 0.75rem; font-size: 0.9rem; }
+
+    .quiz-opts { display: flex; flex-direction: column; gap: 0.35rem; }
+
+    .quiz-opt {
+      padding: 0.55rem 0.9rem;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 0.82rem;
+      transition: all 0.15s;
+      background: white;
+    }
+
+    .quiz-opt:hover { border-color: var(--ink); }
+    .quiz-opt.correct { background: #d4edda; border-color: var(--green); color: var(--green); }
+    .quiz-opt.wrong { background: #fde8e8; border-color: var(--red); color: var(--red); }
+
+    .quiz-expl {
+      display: none;
+      margin-top: 0.6rem;
+      font-size: 0.78rem;
+      color: var(--ink-light);
+      padding: 0.5rem 0.75rem;
+      background: white;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      font-style: italic;
+    }
+
+    /* ── Score ── */
+    .score {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1.25rem;
+      background: var(--ink);
+      color: var(--cream);
+      border-radius: var(--radius);
+      font-family: 'Fraunces', serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    /* ── Loading ── */
+    .loading {
+      display: none;
+      align-items: center;
+      gap: 0.75rem;
+      color: var(--ink-light);
+      font-style: italic;
+      font-size: 0.85rem;
+      padding: 0.75rem 0;
+    }
+
+    .loading.on { display: flex; }
+
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid var(--border);
+      border-top-color: var(--ink);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Inputs ── */
+    input[type=text], input[type=date], input[type=number] {
+      background: white;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--ink);
+      padding: 0.6rem 0.9rem;
+      font-family: 'Instrument Sans', sans-serif;
+      font-size: 0.875rem;
+      width: 100%;
+      transition: border-color 0.15s;
+    }
+
+    input:focus { outline: none; border-color: var(--ink); }
+    input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.5; }
+
+    .gap { height: 1.25rem; }
+    .gap-sm { height: 0.6rem; }
+
+    .alert {
+      padding: 0.65rem 1rem;
+      border-radius: var(--radius);
+      font-size: 0.82rem;
+      margin-bottom: 1rem;
+    }
+
+    .alert-warn { background: #fde8e8; border: 1px solid #f5c6c6; color: #922; }
+    .alert-ok { background: #d4edda; border: 1px solid #a8d5b5; color: var(--green); }
+
+    .grow { flex: 1; min-width: 160px; }
+
+    footer {
+      text-align: center;
+      padding: 2rem 0;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--ink-light);
+      letter-spacing: 0.06em;
+      border-top: 1px solid var(--border);
+      margin-top: 2rem;
+    }
+
+    footer a { color: var(--ink); }
+
+    @media (max-width: 580px) {
+      .opts-grid { grid-template-columns: 1fr 1fr; }
+      .card { padding: 1.25rem; }
+      .steps-nav { display: none; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo">Studia<em>moci</em> 📚</div>
+    <div class="tagline">tutor AI per l'esame<br>powered by Claude</div>
+  </header>
+
+  <nav class="steps-nav">
+    <div class="step-btn active" id="sp1">① File</div>
+    <div class="step-btn" id="sp2">② Configura</div>
+    <div class="step-btn" id="sp3">③ Appunti</div>
+    <div class="step-btn" id="sp4">④ Piano</div>
+    <div class="step-btn" id="sp5">⑤ Quiz</div>
+  </nav>
+
+  <!-- STEP 1 -->
+  <div class="card visible" id="s1">
+    <div class="card-title">📁 Carica il materiale</div>
+    <div class="upload-zone" id="dropzone">
+      <input type="file" id="fileIn" accept=".pdf,.docx,.jpg,.jpeg,.png,.webp"/>
+      <span class="upload-icon">📄</span>
+      <div class="upload-main">Clicca o trascina il file</div>
+      <div class="upload-sub">PDF · Word (.docx) · Immagini JPG / PNG / WEBP</div>
+      <div class="file-name" id="fileName"></div>
+    </div>
+    <div class="gap"></div>
+    <button class="btn btn-primary" onclick="goTo(2)">Avanti →</button>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="card" id="s2">
+    <div class="card-title">⚙️ Come vuoi gli appunti?</div>
+
+    <div class="section-label">Tipo di output</div>
+    <div class="opts-grid">
+      <div class="opt on" id="o-summary" onclick="tog(this,'summary')">
+        <span class="opt-icon">📝</span>
+        <span class="opt-name">Riassunto</span>
+        <span class="opt-desc">Sintesi del contenuto</span>
+      </div>
+      <div class="opt" id="o-mindmap" onclick="tog(this,'mindmap')">
+        <span class="opt-icon">🗺️</span>
+        <span class="opt-name">Mappa concettuale</span>
+        <span class="opt-desc">Struttura ad albero</span>
+      </div>
+      <div class="opt on" id="o-chapters" onclick="tog(this,'chapters')">
+        <span class="opt-icon">📑</span>
+        <span class="opt-name">Dividi per capitoli</span>
+        <span class="opt-desc">Per il piano di studio</span>
+      </div>
+      <div class="opt" id="o-quiz" onclick="tog(this,'quiz')">
+        <span class="opt-icon">❓</span>
+        <span class="opt-name">Quiz</span>
+        <span class="opt-desc">Domande con risposta</span>
+      </div>
+      <div class="opt" id="o-exam_sim" onclick="tog(this,'exam_sim')">
+        <span class="opt-icon">🎯</span>
+        <span class="opt-name">Simulazione esame</span>
+        <span class="opt-desc">Domande aperte</span>
+      </div>
+    </div>
+
+    <div id="len-row">
+      <div class="section-label">Lunghezza riassunto</div>
+      <div class="pills">
+        <div class="pill on" onclick="pill(this,'length','short')">Breve</div>
+        <div class="pill" onclick="pill(this,'length','medium')">Medio</div>
+        <div class="pill" onclick="pill(this,'length','long')">Dettagliato</div>
+      </div>
+    </div>
+
+    <div id="qcount-row" style="display:none">
+      <div class="section-label">Domande quiz</div>
+      <div class="pills">
+        <div class="pill on" onclick="pill(this,'quiz_count','5')">5</div>
+        <div class="pill" onclick="pill(this,'quiz_count','10')">10</div>
+        <div class="pill" onclick="pill(this,'quiz_count','15')">15</div>
+      </div>
+    </div>
+
+    <div class="section-label">Stile di spiegazione</div>
+    <div class="pills" style="margin-bottom:1.5rem;">
+      <div class="pill on" onclick="pill(this,'style','semplice')">🧒 Semplice</div>
+      <div class="pill" onclick="pill(this,'style','universitario')">🎓 Universitario</div>
+      <div class="pill" onclick="pill(this,'style','esempi')">💡 Con esempi</div>
+    </div>
+
+    <div class="row">
+      <button class="btn btn-ghost" onclick="goTo(1)">← Indietro</button>
+      <button class="btn btn-primary" onclick="processFile()">Genera appunti ✨</button>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="card" id="s3">
+    <div class="card-title">✨ I tuoi appunti</div>
+    <div class="loading" id="ld3"><div class="spinner"></div> Claude sta elaborando il file…</div>
+    <div id="resultBox" class="result-box" style="display:none;"></div>
+    <div class="gap"></div>
+    <div class="row" id="res-actions" style="display:none;">
+      <button class="btn btn-ghost" onclick="copyRes()">📋 Copia</button>
+      <button class="btn btn-primary" onclick="goTo(4)">Piano di studio →</button>
+      <button class="btn btn-ghost" onclick="goTo(5)">Quiz →</button>
+    </div>
+  </div>
+
+  <!-- STEP 4 -->
+  <div class="card" id="s4">
+    <div class="card-title">📅 Piano di studio</div>
+
+    <div id="no-chap" class="alert alert-warn" style="display:none;">
+      ⚠️ Nessun capitolo estratto — abilita "Dividi per capitoli" e rielabora, oppure aggiungili qui sotto.
+    </div>
+
+    <div class="section-label">Capitoli</div>
+    <div id="chapList" style="margin-bottom:0.75rem;"></div>
+    <div class="row" style="margin-bottom:1.5rem;">
+      <div class="grow"><input type="text" id="chapIn" placeholder="Aggiungi capitolo manualmente…"/></div>
+      <button class="btn btn-ghost" onclick="addChap()">+ Aggiungi</button>
+    </div>
+
+    <div class="section-label">Data dell'esame</div>
+    <div class="row" style="margin-bottom:1.5rem;">
+      <div class="grow"><input type="date" id="examDate"/></div>
+      <button class="btn btn-primary" onclick="makePlan()">Genera piano 📅</button>
+    </div>
+
+    <div id="planWrap" style="display:none;">
+      <div class="section-label">Il tuo calendario</div>
+      <div class="timeline" id="planList"></div>
+    </div>
+
+    <div class="gap"></div>
+    <div class="row">
+      <button class="btn btn-ghost" onclick="goTo(3)">← Appunti</button>
+      <button class="btn btn-primary" onclick="goTo(5)">Quiz & Simulazione →</button>
+    </div>
+  </div>
+
+  <!-- STEP 5 -->
+  <div class="card" id="s5">
+    <div class="card-title">🧠 Quiz & Simulazione esame</div>
+
+    <div class="section-label">Argomento</div>
+    <div style="margin-bottom:1rem;">
+      <input type="text" id="quizTopic" placeholder="Es: La rivoluzione francese, Le equazioni differenziali…"/>
+    </div>
+
+    <div class="section-label">Modalità</div>
+    <div class="pills" style="margin-bottom:1rem;">
+      <div class="pill on" onclick="pill(this,'quiz_mode','quiz')">❓ Quiz a scelta multipla</div>
+      <div class="pill" onclick="pill(this,'quiz_mode','exam')">📝 Simulazione esame aperta</div>
+    </div>
+
+    <div id="qc2-row" style="margin-bottom:1.25rem;">
+      <div class="section-label">Numero domande</div>
+      <div class="pills">
+        <div class="pill on" onclick="pill(this,'quiz_count2','5')">5</div>
+        <div class="pill" onclick="pill(this,'quiz_count2','10')">10</div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="doQuiz()">Genera 🎲</button>
+
+    <div class="loading" id="ld5" style="margin-top:1rem;"><div class="spinner"></div> Sto preparando le domande…</div>
+    <div class="gap"></div>
+    <div id="quizWrap"></div>
+    <div id="quizScore" style="display:none; margin-top:1rem;"></div>
+
+    <div class="gap"></div>
+    <button class="btn btn-ghost" onclick="goTo(4)">← Piano di studio</button>
+  </div>
+
+  <footer>
+    STUDIAMOCI — POWERED BY <a href="https://anthropic.com">CLAUDE AI</a> · OPEN SOURCE SU GITHUB
+  </footer>
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+const S = {
+  file: null,
+  prefs: { summary:true, mindmap:false, chapters:true, quiz:false, exam_sim:false,
+           length:'short', style:'semplice', quiz_count:'5' },
+  result: '',
+  chapters: [],
+  quiz_mode: 'quiz',
+  quiz_count2: '5'
+};
+
+// ── Nav ───────────────────────────────────────────────────────────────────────
+function goTo(n) {
+  if (n === 2 && !S.file) { alert('Carica un file prima!'); return; }
+  document.querySelectorAll('.card').forEach((c,i) => c.classList.toggle('visible', i+1===n));
+  document.querySelectorAll('.step-btn').forEach((b,i) => {
+    b.classList.toggle('active', i+1===n);
+    b.classList.toggle('done', i+1<n);
+  });
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ── Upload ────────────────────────────────────────────────────────────────────
+const fi = document.getElementById('fileIn');
+const dz = document.getElementById('dropzone');
+const fn = document.getElementById('fileName');
+
+fi.addEventListener('change', () => { if (fi.files[0]) pick(fi.files[0]); });
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); if (e.dataTransfer.files[0]) pick(e.dataTransfer.files[0]); });
+
+function pick(f) { S.file = f; fn.textContent = '✓ ' + f.name; }
+
+// ── Option toggles ────────────────────────────────────────────────────────────
+function tog(el, k) {
+  el.classList.toggle('on');
+  S.prefs[k] = el.classList.contains('on');
+  if (k==='summary') document.getElementById('len-row').style.display = S.prefs.summary?'block':'none';
+  if (k==='quiz') document.getElementById('qcount-row').style.display = S.prefs.quiz?'block':'none';
+}
+
+function pill(el, k, v) {
+  el.closest('.pills').querySelectorAll('.pill').forEach(p => p.classList.remove('on'));
+  el.classList.add('on');
+  S[k] = v;
+  if (k==='quiz_mode') document.getElementById('qc2-row').style.display = v==='quiz'?'block':'none';
+}
+
+// ── Process file ──────────────────────────────────────────────────────────────
+async function processFile() {
+  goTo(3);
+  const ld = document.getElementById('ld3');
+  const rb = document.getElementById('resultBox');
+  const ra = document.getElementById('res-actions');
+  ld.classList.add('on'); rb.style.display='none'; ra.style.display='none';
+
+  const fd = new FormData();
+  fd.append('file', S.file);
+  fd.append('preferences', JSON.stringify({...S.prefs, quiz_count: parseInt(S.prefs.quiz_count||5)}));
+
+  try {
+    const r = await fetch('/api/process', {method:'POST', body:fd});
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    S.result = d.result;
+    S.chapters = d.chapters || [];
+    rb.textContent = d.result;
+    rb.style.display='block'; ra.style.display='flex';
+    renderChaps();
+  } catch(e) {
+    rb.textContent = '❌ Errore: ' + e.message;
+    rb.style.display='block';
+  } finally { ld.classList.remove('on'); }
+}
+
+function copyRes() { navigator.clipboard.writeText(S.result).then(()=>alert('Copiato! ✓')); }
+
+// ── Chapters ──────────────────────────────────────────────────────────────────
+function renderChaps() {
+  const el = document.getElementById('chapList');
+  const warn = document.getElementById('no-chap');
+  warn.style.display = S.chapters.length ? 'none' : 'block';
+  el.innerHTML = S.chapters.map((c,i) =>
+    `<div class="chapter-item">
+      <span class="chapter-num">${i+1}.</span>
+      <span>${c}</span>
+      <button class="chapter-rm" onclick="rmChap(${i})">✕</button>
+    </div>`
+  ).join('');
+}
+
+function addChap() {
+  const inp = document.getElementById('chapIn');
+  if (inp.value.trim()) { S.chapters.push(inp.value.trim()); inp.value=''; renderChaps(); }
+}
+
+function rmChap(i) { S.chapters.splice(i,1); renderChaps(); }
+
+// ── Study plan ────────────────────────────────────────────────────────────────
+async function makePlan() {
+  const ed = document.getElementById('examDate').value;
+  if (!ed) { alert("Inserisci la data dell'esame!"); return; }
+  const r = await fetch('/api/study-plan', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({chapters:S.chapters, exam_date:ed})});
+  const d = await r.json();
+  if (d.error) { alert(d.error); return; }
+  const list = document.getElementById('planList');
+  list.innerHTML = d.plan.map(p =>
+    `<div class="tl-item ${p.type||'study'}">
+      <span class="tl-date">${fmtDate(p.day)}</span>
+      <span>${p.task}</span>
+    </div>`
+  ).join('');
+  document.getElementById('planWrap').style.display='block';
+}
+
+function fmtDate(s) {
+  const d = new Date(s+'T00:00:00');
+  return d.toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'short'});
+}
+
+// ── Quiz ──────────────────────────────────────────────────────────────────────
+let qData = [], qAns = {};
+
+async function doQuiz() {
+  const topic = document.getElementById('quizTopic').value.trim();
+  if (!topic) { alert('Inserisci un argomento!'); return; }
+
+  document.getElementById('ld5').classList.add('on');
+  document.getElementById('quizWrap').innerHTML='';
+  document.getElementById('quizScore').style.display='none';
+  qData=[]; qAns={};
+
+  const r = await fetch('/api/quiz', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({topic, context:S.result.substring(0,2000), num_questions:parseInt(S.quiz_count2||5), mode:S.quiz_mode})});
+  const d = await r.json();
+  document.getElementById('ld5').classList.remove('on');
+  if (d.error) { alert(d.error); return; }
+
+  if (S.quiz_mode==='exam') {
+    document.getElementById('quizWrap').innerHTML = `<div class="result-box">${d.quiz}</div>`;
+  } else {
+    renderQuiz(d.quiz);
+  }
+}
+
+function renderQuiz(raw) {
+  const blocks = raw.split('---').filter(b=>b.trim());
+  qData=[];
+  blocks.forEach(block => {
+    const qm = block.match(/DOMANDA\s+\d+:\s*(.+?)(?=\nA\))/s);
+    const opts = [...block.matchAll(/([A-D])\)\s*(.+?)(?=\n[A-D]\)|\nRISPOSTA|$)/gs)];
+    const am = block.match(/RISPOSTA CORRETTA:\s*([A-D])/);
+    const em = block.match(/SPIEGAZIONE:\s*(.+?)(?=---|$)/s);
+    if (!qm||!am) return;
+    qData.push({text:qm[1].trim(), opts:opts.map(o=>({l:o[1],t:o[2].trim()})), correct:am[1], expl:em?em[1].trim():''});
+  });
+
+  const wrap = document.getElementById('quizWrap');
+  wrap.innerHTML = qData.map((q,i) =>
+    `<div class="quiz-q" id="qq${i}">
+      <div class="quiz-q-text">${i+1}. ${q.text}</div>
+      <div class="quiz-opts">
+        ${q.opts.map(o=>`<div class="quiz-opt" onclick="pick${i}('${o.l}',this)"><strong>${o.l})</strong> ${o.t}</div>`).join('')}
+      </div>
+      <div class="quiz-expl" id="qe${i}">💡 ${q.expl}</div>
+    </div>`
+  ).join('') + (qData.length ? `<button class="btn btn-primary" onclick="submit()" style="margin-top:0.75rem;">Correggi ✓</button>` : '');
+
+  // Dynamic pick functions
+  qData.forEach((_,i) => {
+    window[`pick${i}`] = (letter, el) => {
+      if (qAns[i]!==undefined) return;
+      el.closest('.quiz-opts').querySelectorAll('.quiz-opt').forEach(o=>o.style.opacity='0.5');
+      el.style.opacity='1';
+      qAns[i]=letter;
+    };
+  });
+}
+
+function submit() {
+  let ok=0;
+  qData.forEach((q,i) => {
+    document.querySelectorAll(`#qq${i} .quiz-opt`).forEach(el => {
+      const l = el.textContent.trim()[0];
+      if (l===q.correct) el.classList.add('correct');
+      if (l===qAns[i] && qAns[i]!==q.correct) el.classList.add('wrong');
+    });
+    document.getElementById('qe'+i).style.display='block';
+    if (qAns[i]===q.correct) ok++;
+  });
+  const t=qData.length, pct=t?Math.round(ok/t*100):0;
+  const s=document.getElementById('quizScore');
+  s.innerHTML=`<span class="score">${ok}/${t} — ${pct}%</span> ${pct>=70?'🎉 Ottimo!':pct>=50?'👍 Quasi!':'📚 Dai, riprova!'}`;
+  s.style.display='block';
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.getElementById('examDate').min = new Date().toISOString().split('T')[0];
+renderChaps();
+</script>
+</body>
+</html>

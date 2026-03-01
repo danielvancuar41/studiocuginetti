@@ -1,0 +1,11 @@
+{
+  "name": "studiamoci",
+  "version": "1.0.0",
+  "description": "Il tuo tutor AI personale",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.35.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
