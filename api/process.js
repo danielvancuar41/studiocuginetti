@@ -68,11 +68,6 @@ export default async function handler(req, res) {
 
     if (!fileData) return res.status(400).json({ error: "Nessun file" });
 
-    // Limit file size to avoid 413 - truncate to 3MB
-    if (fileData.length > 3 * 1024 * 1024) {
-      fileData = fileData.slice(0, 3 * 1024 * 1024);
-    }
-
     // Build prompt
     const outputParts = [];
     const len = { short: "breve (max 200 parole per capitolo)", medium: "medio (~400 parole)", long: "dettagliato e completo" }[prefs.length || "medium"];
@@ -101,8 +96,11 @@ export default async function handler(req, res) {
         { type: "document", source: { type: "base64", media_type: "application/pdf", data: fileData.toString("base64") } },
         { type: "text", text: prompt }
       ];
+    } else if (fileName.endsWith(".txt") || fileName.endsWith(".md")) {
+      // Plain text — just send as text, up to 100k chars
+      const text = fileData.toString("utf8").substring(0, 100000);
+      messageContent = `${prompt}\n\nTESTO:\n${text}`;
     } else if (fileName.endsWith(".docx")) {
-      // Extract basic text from docx (XML-based)
       const text = fileData.toString("utf8").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").substring(0, 50000);
       messageContent = `${prompt}\n\nTESTO ESTRATTO:\n${text}`;
     } else {
