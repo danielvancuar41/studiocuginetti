@@ -485,12 +485,53 @@
   </header>
 
   <nav class="steps-nav">
-    <div class="step-btn active" id="sp1" onclick="goTo(1)">① File</div>
+    <div class="step-btn active" id="sp0" onclick="goTo(0)">✂️ Dividi</div>
+    <div class="step-btn" id="sp1" onclick="goTo(1)">① File</div>
     <div class="step-btn" id="sp2" onclick="goTo(2)">② Configura</div>
     <div class="step-btn" id="sp3" onclick="goTo(3)">③ Appunti</div>
     <div class="step-btn" id="sp4" onclick="goTo(4)">④ Piano</div>
     <div class="step-btn" id="sp5" onclick="goTo(5)">⑤ Quiz</div>
   </nav>
+
+  <!-- STEP 0: Dividi libro in capitoli -->
+  <div class="card visible" id="s0">
+    <div class="card-title">✂️ Dividi il libro in capitoli</div>
+    <p style="font-size:0.875rem; color:var(--ink-light); margin-bottom:1.25rem; line-height:1.6;">
+      Hai un libro intero? Caricalo qui — l'app lo divide in capitoli e ti scarica un file <strong>.txt per ogni capitolo</strong>.
+      Poi studi un capitolo alla volta con appunti completi e dettagliati.
+    </p>
+
+    <div class="upload-zone" id="dropzone0">
+      <input type="file" id="fileIn0" accept=".pdf,.docx,.txt,.md"/>
+      <span class="upload-icon">📚</span>
+      <div class="upload-main">Carica il libro completo</div>
+      <div class="upload-sub">PDF · Word (.docx) · Testo (.txt)</div>
+      <div class="file-name" id="fileName0"></div>
+    </div>
+
+    <div class="gap"></div>
+    <button class="btn btn-primary" onclick="splitBook()" id="btnSplit">Dividi in capitoli ✂️</button>
+
+    <div class="loading" id="ld0" style="margin-top:1rem;">
+      <div class="spinner"></div>
+      <span id="ld0text">Sto analizzando il libro e dividendo in capitoli…</span>
+    </div>
+
+    <!-- Risultato divisione -->
+    <div id="splitResult" style="display:none; margin-top:1.5rem;">
+      <div class="section-label">Capitoli trovati — clicca per scaricare</div>
+      <div id="splitChapList" style="display:flex; flex-direction:column; gap:0.4rem; margin-top:0.5rem; max-height:400px; overflow-y:auto;"></div>
+      <div class="gap"></div>
+      <button class="btn btn-ghost" onclick="downloadAllChaps()">⬇️ Scarica tutti i capitoli (.zip)</button>
+    </div>
+
+    <div class="gap"></div>
+    <div style="border-top:1px solid var(--border); padding-top:1rem; margin-top:0.5rem;">
+      <p style="font-size:0.8rem; color:var(--ink-light);">Hai già il singolo capitolo? Vai direttamente allo step successivo →</p>
+      <div class="gap"></div>
+      <button class="btn btn-ghost" onclick="goTo(1)">Salta — carica direttamente un capitolo →</button>
+    </div>
+  </div>
 
   <!-- STEP 1 -->
   <div class="card visible" id="s1">
@@ -718,16 +759,140 @@ const S = {
 
 // ── Nav ───────────────────────────────────────────────────────────────────────
 function goTo(n) {
-  if (n === 2 && !S.file) { alert('Carica un file prima!'); return; }
-  document.querySelectorAll('.card').forEach((c,i) => c.classList.toggle('visible', i+1===n));
+  if (n >= 2 && !S.file) { alert('Carica un capitolo prima (step ①)!'); return; }
+  // Cards: s0=index0, s1=index1, ... s5=index5
+  document.querySelectorAll('.card').forEach((c,i) => c.classList.toggle('visible', i===n));
   document.querySelectorAll('.step-btn').forEach((b,i) => {
-    b.classList.toggle('active', i+1===n);
-    b.classList.toggle('done', i+1<n);
+    b.classList.toggle('active', i===n);
+    b.classList.toggle('done', i<n);
   });
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
-// ── Upload ────────────────────────────────────────────────────────────────────
+// ── Upload step 0 ─────────────────────────────────────────────────────────────
+const fi0 = document.getElementById('fileIn0');
+const dz0 = document.getElementById('dropzone0');
+const fn0 = document.getElementById('fileName0');
+let splitFile = null;
+let splitChapters = []; // {title, text}
+
+fi0.addEventListener('change', () => { if (fi0.files[0]) { splitFile = fi0.files[0]; fn0.textContent = '✓ ' + splitFile.name; } });
+dz0.addEventListener('dragover', e => { e.preventDefault(); dz0.classList.add('over'); });
+dz0.addEventListener('dragleave', () => dz0.classList.remove('over'));
+dz0.addEventListener('drop', e => { e.preventDefault(); dz0.classList.remove('over'); if (e.dataTransfer.files[0]) { splitFile = e.dataTransfer.files[0]; fn0.textContent = '✓ ' + splitFile.name; } });
+
+async function splitBook() {
+  if (!splitFile) { alert('Carica un file prima!'); return; }
+
+  const ld = document.getElementById('ld0');
+  const ldText = document.getElementById('ld0text');
+  const result = document.getElementById('splitResult');
+  const chapList = document.getElementById('splitChapList');
+
+  ld.classList.add('on');
+  result.style.display = 'none';
+  splitChapters = [];
+
+  const MAX = 3.5 * 1024 * 1024;
+  let fileToSend = splitFile;
+  if (splitFile.size > MAX) {
+    const buf = await splitFile.arrayBuffer();
+    fileToSend = new File([buf.slice(0, MAX)], splitFile.name, { type: splitFile.type });
+    ldText.textContent = `File grande — elaboro i primi 3.5MB…`;
+  }
+
+  const fd = new FormData();
+  fd.append('file', fileToSend);
+
+  try {
+    const response = await fetch('/api/split', { method: 'POST', body: fd });
+    if (!response.ok) throw new Error(`Errore server: ${response.status}`);
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let accumulated = '';
+    ldText.textContent = 'Sto dividendo in capitoli…';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const text = decoder.decode(value, { stream: true });
+      for (const line of text.split('\n')) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const json = JSON.parse(line.slice(6));
+          if (json.error) throw new Error(json.error);
+          if (json.chunk) accumulated += json.chunk;
+          if (json.done) {
+            splitChapters = json.chapters || [];
+            renderSplitChapters(chapList);
+            result.style.display = 'block';
+          }
+        } catch(e) { /* skip */ }
+      }
+    }
+
+    // fallback: if no done event but we have text, try parsing anyway
+    if (splitChapters.length === 0 && accumulated) {
+      const chapRegex = /===CAPITOLO_START===\s*TITOLO:\s*(.+?)\s*TESTO:\s*([\s\S]*?)===CAPITOLO_END===/g;
+      let m;
+      while ((m = chapRegex.exec(accumulated)) !== null) {
+        splitChapters.push({ title: m[1].trim(), text: m[2].trim() });
+      }
+      if (splitChapters.length > 0) {
+        renderSplitChapters(chapList);
+        result.style.display = 'block';
+      } else {
+        alert('Non sono riuscito a identificare i capitoli. Prova con un file TXT.');
+      }
+    }
+
+  } catch(e) {
+    alert('Errore: ' + e.message);
+  } finally {
+    ld.classList.remove('on');
+    ldText.textContent = 'Sto analizzando il libro e dividendo in capitoli…';
+  }
+}
+
+function renderSplitChapters(container) {
+  container.innerHTML = splitChapters.map((ch, i) =>
+    `<div style="display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0.75rem; background:var(--cream); border-radius:4px; border:1px solid var(--border);">
+      <span style="font-family:'DM Mono',monospace; font-size:0.7rem; color:var(--gold); min-width:2rem;">${i+1}.</span>
+      <span style="flex:1; font-size:0.85rem; font-weight:500;">${ch.title}</span>
+      <span style="font-family:'DM Mono',monospace; font-size:0.65rem; color:var(--ink-light);">${Math.round(ch.text.length/5)} parole</span>
+      <button class="btn btn-ghost" style="padding:0.3rem 0.75rem; font-size:0.75rem;" onclick="downloadChap(${i})">⬇️ .txt</button>
+      <button class="btn btn-primary" style="padding:0.3rem 0.75rem; font-size:0.75rem;" onclick="loadChapForStudy(${i})">Studia →</button>
+    </div>`
+  ).join('');
+}
+
+function downloadChap(i) {
+  const ch = splitChapters[i];
+  const content = `${ch.title}\n${'='.repeat(ch.title.length)}\n\n${ch.text}`;
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `capitolo_${i+1}_${ch.title.substring(0,40).replace(/[^a-zA-Z0-9]/g,'_')}.txt`;
+  a.click();
+}
+
+async function downloadAllChaps() {
+  // Download one by one since no zip library available
+  for (let i = 0; i < splitChapters.length; i++) {
+    downloadChap(i);
+    await new Promise(r => setTimeout(r, 300));
+  }
+}
+
+function loadChapForStudy(i) {
+  const ch = splitChapters[i];
+  const content = `${ch.title}\n${'='.repeat(ch.title.length)}\n\n${ch.text}`;
+  const blob = new Blob([content], { type: 'text/plain' });
+  S.file = new File([blob], `${ch.title.substring(0,40)}.txt`, { type: 'text/plain' });
+  document.getElementById('fileName').textContent = '✓ ' + S.file.name;
+  goTo(2); // go straight to config
+}
 const fi = document.getElementById('fileIn');
 const dz = document.getElementById('dropzone');
 const fn = document.getElementById('fileName');
@@ -814,11 +979,20 @@ async function processFile() {
           if (json.done) {
             S.result = accumulated;
             S.chapters = json.chapters || [];
+            rb.textContent = accumulated + '\n\n✅ Completato.';
             ra.style.display = 'flex';
             renderChaps();
           }
         } catch(parseErr) { /* skip malformed lines */ }
       }
+    }
+
+    // If stream ended without done signal = token limit reached
+    if (!S.result && accumulated) {
+      S.result = accumulated;
+      rb.textContent = accumulated + '\n\n⚠️ Testo troncato: il libro è molto lungo. Gli appunti coprono i primi capitoli. Per avere tutto, carica il libro a sezioni.';
+      ra.style.display = 'flex';
+      renderChaps();
     }
   } catch(e) {
     rb.textContent = '❌ Errore: ' + e.message;
@@ -1007,6 +1181,9 @@ function submit() {
 // ── Init ──────────────────────────────────────────────────────────────────────
 document.getElementById('examDate').min = new Date().toISOString().split('T')[0];
 renderChaps();
+// Start at step 0
+document.querySelectorAll('.card').forEach((c,i) => c.classList.toggle('visible', i===0));
+document.querySelectorAll('.step-btn').forEach((b,i) => b.classList.toggle('active', i===0));
 </script>
 </body>
 </html>
