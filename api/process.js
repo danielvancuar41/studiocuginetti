@@ -68,16 +68,27 @@ export default async function handler(req, res) {
 
     if (!fileData) return res.status(400).json({ error: "Nessun file" });
 
+    // Limit file size to avoid 413 - truncate to 3MB
+    if (fileData.length > 3 * 1024 * 1024) {
+      fileData = fileData.slice(0, 3 * 1024 * 1024);
+    }
+
     // Build prompt
     const outputParts = [];
-    if (prefs.summary) {
-      const len = { short: "breve (max 200 parole per capitolo)", medium: "medio (~400 parole)", long: "dettagliato e completo" }[prefs.length || "medium"];
-      outputParts.push(`1. RIASSUNTO: scrivi un riassunto ${len}.`);
-    }
-    if (prefs.mindmap) outputParts.push("2. MAPPA CONCETTUALE: struttura ad albero con indentazione e simboli (→, •, ◦).");
-    if (prefs.chapters) outputParts.push('3. CAPITOLI: identifica i capitoli/argomenti principali. Alla fine aggiungi esattamente questo JSON su una riga: {"chapters":["cap1","cap2",...]}');
-    if (prefs.quiz) outputParts.push(`4. QUIZ: genera ${prefs.quiz_count || 5} domande con risposta su argomenti chiave.`);
-    if (prefs.exam_sim) outputParts.push("5. SIMULAZIONE ESAME: 3 domande aperte impegnative con risposta modello.");
+    const len = { short: "breve (max 200 parole per capitolo)", medium: "medio (~400 parole)", long: "dettagliato e completo" }[prefs.length || "medium"];
+
+    if (prefs.summary) outputParts.push(`1. RIASSUNTO: scrivi un riassunto ${len}.`);
+    if (prefs.mindmap) outputParts.push(`1. MAPPA CONCETTUALE: struttura ad albero ${len} con indentazione e simboli (→, •, ◦).`);
+    if (prefs.chapters) outputParts.push('2. CAPITOLI: identifica i capitoli/argomenti principali. Alla fine aggiungi esattamente questo JSON su una riga: {"chapters":["cap1","cap2",...]}');
+
+    // Quiz — always included
+    const diffNote = { facile: "semplici e dirette", medio: "di media difficoltà", difficile: "impegnative e approfondite" }[prefs.quiz_diff || "facile"];
+    const scopeNote = { generale: "sull'intero contenuto", capitolo: "divise per capitolo", paragrafo: "molto specifiche per ogni paragrafo/sezione" }[prefs.quiz_scope || "generale"];
+    outputParts.push(`3. QUIZ: genera ${prefs.quiz_count || 10} domande a scelta multipla ${diffNote}, ${scopeNote}. Formato: DOMANDA N: [testo] A) B) C) D) RISPOSTA CORRETTA: [lettera] SPIEGAZIONE: [testo] ---`);
+
+    // Exam simulation — always included
+    const examTypeNote = { aperte: "domande aperte classiche", miste: "mix di domande aperte e vero/falso", orale: "domande stile colloquio orale con possibili controdomande" }[prefs.exam_type || "aperte"];
+    outputParts.push(`4. SIMULAZIONE ESAME: genera ${prefs.exam_count || 3} ${examTypeNote} impegnative come in un esame vero, con risposta modello dettagliata.`);
 
     const styleNote = { semplice: "Usa un linguaggio semplice, adatto a studenti delle superiori.", universitario: "Usa linguaggio tecnico e preciso, livello universitario.", esempi: "Usa molti esempi pratici e analogie." }[prefs.style || "semplice"];
 
