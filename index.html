@@ -772,35 +772,60 @@ async function processFile() {
   ld.classList.add('on'); rb.style.display='none'; ra.style.display='none';
 
   try {
-    // Read file as ArrayBuffer and truncate to 3.5MB before sending
     const MAX = 3.5 * 1024 * 1024;
     let fileToSend = S.file;
-
     if (S.file.size > MAX) {
       const buf = await S.file.arrayBuffer();
-      const truncated = buf.slice(0, MAX);
-      fileToSend = new File([truncated], S.file.name, { type: S.file.type });
-      rb.textContent = `⚠️ File grande (${(S.file.size/1024/1024).toFixed(1)}MB) — elaboro solo i primi 3.5MB. Per file grandi carica un capitolo alla volta.`;
-      rb.style.display='block';
-      await new Promise(r => setTimeout(r, 2000)); // show warning 2 sec
+      fileToSend = new File([buf.slice(0, MAX)], S.file.name, { type: S.file.type });
     }
 
     const fd = new FormData();
     fd.append('file', fileToSend);
     fd.append('preferences', JSON.stringify({...S.prefs, quiz_count: parseInt(S.prefs.quiz_count||10)}));
 
-    const r = await fetch('/api/process', {method:'POST', body:fd});
-    const d = await r.json();
-    if (d.error) throw new Error(d.error);
-    S.result = d.result;
-    S.chapters = d.chapters || [];
-    rb.textContent = d.result;
-    rb.style.display='block'; ra.style.display='flex';
-    renderChaps();
+    const response = await fetch('/api/process', { method: 'POST', body: fd });
+
+    if (!response.ok) throw new Error(`Errore server: ${response.status}`);
+
+    // Read SSE stream
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let accumulated = '';
+    rb.textContent = '';
+    rb.style.display = 'block';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const text = decoder.decode(value, { stream: true });
+      const lines = text.split('\n');
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const json = JSON.parse(line.slice(6));
+          if (json.error) throw new Error(json.error);
+          if (json.chunk) {
+            accumulated += json.chunk;
+            rb.textContent = accumulated;
+            rb.scrollTop = rb.scrollHeight;
+          }
+          if (json.done) {
+            S.result = accumulated;
+            S.chapters = json.chapters || [];
+            ra.style.display = 'flex';
+            renderChaps();
+          }
+        } catch(parseErr) { /* skip malformed lines */ }
+      }
+    }
   } catch(e) {
     rb.textContent = '❌ Errore: ' + e.message;
-    rb.style.display='block';
-  } finally { ld.classList.remove('on'); }
+    rb.style.display = 'block';
+  } finally {
+    ld.classList.remove('on');
+  }
 }
 
 function copyRes() { navigator.clipboard.writeText(S.result).then(()=>alert('Copiato! ✓')); }
