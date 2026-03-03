@@ -646,9 +646,28 @@
   <!-- STEP 3 -->
   <div class="card" id="s3">
     <div class="card-title">✨ I tuoi appunti</div>
-    <div class="loading" id="ld3"><div class="spinner"></div> Claude sta elaborando il file… (può richiedere 20-30 secondi)</div>
+    <div class="loading" id="ld3"><div class="spinner"></div> <span id="ld3text">Claude sta elaborando… (20-30 secondi)</span></div>
+
+    <!-- Part progress bar -->
+    <div id="partProgress" style="display:none; margin-bottom:1rem;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
+        <span style="font-family:'DM Mono',monospace; font-size:0.7rem; color:var(--ink-light);" id="partLabel">Parte 1 di 1</span>
+        <span style="font-family:'DM Mono',monospace; font-size:0.7rem; color:var(--green);" id="partPct">0%</span>
+      </div>
+      <div style="background:var(--border); border-radius:100px; height:4px;">
+        <div id="partBar" style="background:var(--ink); height:4px; border-radius:100px; width:0%; transition:width 0.3s;"></div>
+      </div>
+    </div>
+
     <div id="resultBox" class="result-box" style="display:none; max-height:600px;"></div>
     <div class="gap"></div>
+
+    <!-- Continue button (shown between parts) -->
+    <div id="continueRow" style="display:none; margin-bottom:1rem;">
+      <div class="alert alert-warn" id="continueMsg" style="margin-bottom:0.75rem;"></div>
+      <button class="btn btn-primary" onclick="processNextPart()">Continua con la parte successiva →</button>
+    </div>
+
     <div class="row" id="res-actions" style="display:none;">
       <button class="btn btn-ghost" onclick="copyRes()">📋 Copia testo</button>
       <button class="btn btn-ghost" onclick="downloadResTxt()">⬇️ Scarica .txt</button>
@@ -751,10 +770,15 @@ const S = {
            length:'short', style:'semplice',
            quiz_count:'10', quiz_diff:'facile', quiz_scope:'generale',
            exam_count:'3', exam_type:'aperte' },
-  result: '',
+  result: '',       // full accumulated result across all parts
   chapters: [],
   quiz_mode: 'quiz',
-  quiz_count2: '5'
+  quiz_count2: '5',
+  // multi-part
+  totalParts: 1,
+  currentPart: 0,
+  fileText: null,   // full text of uploaded txt/docx
+  chunks: [],       // text split into chunks
 };
 
 // ── Nav ───────────────────────────────────────────────────────────────────────
@@ -931,75 +955,171 @@ function pill(el, k, v) {
 // ── Process file ──────────────────────────────────────────────────────────────
 async function processFile() {
   goTo(3);
+
+  // Reset state
+  S.result = '';
+  S.chapters = [];
+  S.currentPart = 0;
+  S.chunks = [];
+  S.totalParts = 1;
+
+  const rb = document.getElementById('resultBox');
+  rb.textContent = '';
+  rb.style.display = 'none';
+  document.getElementById('res-actions').style.display = 'none';
+  document.getElementById('continueRow').style.display = 'none';
+
+  // For TXT/MD: read full text and split into chunks client-side
+  const CHUNK = 80000;
+  const name = S.file.name.toLowerCase();
+
+  if (name.endsWith('.txt') || name.endsWith('.md')) {
+    const text = await S.file.text();
+    S.fileText = text;
+    S.chunks = [];
+    for (let i = 0; i < text.length; i += CHUNK) {
+      S.chunks.push(text.slice(i, i + CHUNK));
+    }
+    S.totalParts = S.chunks.length;
+  } else {
+    // PDF/image: single part, send as-is
+    S.fileText = null;
+    S.chunks = [];
+    S.totalParts = 1;
+  }
+
+  await processPartIndex(0);
+}
+
+async function processNextPart() {
+  document.getElementById('continueRow').style.display = 'none';
+  await processPartIndex(S.currentPart);
+}
+
+async function processPartIndex(partIndex) {
+  S.currentPart = partIndex;
+
   const ld = document.getElementById('ld3');
+  const ldText = document.getElementById('ld3text');
   const rb = document.getElementById('resultBox');
   const ra = document.getElementById('res-actions');
-  ld.classList.add('on'); rb.style.display='none'; ra.style.display='none';
+  const progress = document.getElementById('partProgress');
+  const partLabel = document.getElementById('partLabel');
+  const partBar = document.getElementById('partBar');
+  const partPct = document.getElementById('partPct');
+
+  ld.classList.add('on');
+  ra.style.display = 'none';
+
+  // Show progress if multi-part
+  if (S.totalParts > 1) {
+    progress.style.display = 'block';
+    partLabel.textContent = `Parte ${partIndex + 1} di ${S.totalParts}`;
+    const pct = Math.round((partIndex / S.totalParts) * 100);
+    partBar.style.width = pct + '%';
+    partPct.textContent = pct + '%';
+    ldText.textContent = `Elaboro parte ${partIndex + 1} di ${S.totalParts}…`;
+  }
+
+  rb.style.display = 'block';
 
   try {
-    const MAX = 3.5 * 1024 * 1024;
-    let fileToSend = S.file;
-    if (S.file.size > MAX) {
-      const buf = await S.file.arrayBuffer();
-      fileToSend = new File([buf.slice(0, MAX)], S.file.name, { type: S.file.type });
+    const fd = new FormData();
+    fd.append('preferences', JSON.stringify({...S.prefs, quiz_count: parseInt(S.prefs.quiz_count||10)}));
+    fd.append('partIndex', String(partIndex));
+    fd.append('totalParts', String(S.totalParts));
+
+    // Build file to send
+    if (S.chunks.length > 0) {
+      // Send only this chunk as txt
+      const chunkBlob = new Blob([S.chunks[partIndex]], { type: 'text/plain' });
+      fd.append('file', new File([chunkBlob], `parte_${partIndex+1}.txt`, { type: 'text/plain' }));
+    } else {
+      // PDF or image: send original (truncated to 3.5MB)
+      const MAX = 3.5 * 1024 * 1024;
+      let fileToSend = S.file;
+      if (S.file.size > MAX) {
+        const buf = await S.file.arrayBuffer();
+        fileToSend = new File([buf.slice(0, MAX)], S.file.name, { type: S.file.type });
+      }
+      fd.append('file', fileToSend);
     }
 
-    const fd = new FormData();
-    fd.append('file', fileToSend);
-    fd.append('preferences', JSON.stringify({...S.prefs, quiz_count: parseInt(S.prefs.quiz_count||10)}));
-
     const response = await fetch('/api/process', { method: 'POST', body: fd });
-
     if (!response.ok) throw new Error(`Errore server: ${response.status}`);
 
-    // Read SSE stream
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
-    let accumulated = '';
-    rb.textContent = '';
-    rb.style.display = 'block';
+    let partText = '';
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
-      const text = decoder.decode(value, { stream: true });
-      const lines = text.split('\n');
-
-      for (const line of lines) {
+      for (const line of decoder.decode(value, { stream: true }).split('\n')) {
         if (!line.startsWith('data: ')) continue;
         try {
           const json = JSON.parse(line.slice(6));
           if (json.error) throw new Error(json.error);
           if (json.chunk) {
-            accumulated += json.chunk;
-            rb.textContent = accumulated;
+            partText += json.chunk;
+            // Build index + content display
+            rb.textContent = buildDisplay(partText, partIndex);
             rb.scrollTop = rb.scrollHeight;
           }
           if (json.done) {
-            S.result = accumulated;
-            S.chapters = json.chapters || [];
-            rb.textContent = accumulated + '\n\n✅ Completato.';
-            ra.style.display = 'flex';
-            renderChaps();
+            S.result += (S.result ? '\n\n' : '') + partText;
+            if (json.chapters?.length) S.chapters = json.chapters;
+
+            const isLast = partIndex >= S.totalParts - 1;
+
+            // Update progress bar to completed part
+            const pct = Math.round(((partIndex + 1) / S.totalParts) * 100);
+            partBar.style.width = pct + '%';
+            partPct.textContent = pct + '%';
+            partLabel.textContent = `Parte ${partIndex + 1} di ${S.totalParts} completata`;
+
+            if (isLast) {
+              // All done — show final result with index
+              rb.textContent = buildFinalDisplay();
+              ra.style.display = 'flex';
+              renderChaps();
+              if (S.totalParts > 1) partLabel.textContent = `✅ Tutte le ${S.totalParts} parti completate`;
+            } else {
+              // More parts to go — show continue button
+              const msg = document.getElementById('continueMsg');
+              msg.textContent = `✅ Parte ${partIndex+1} di ${S.totalParts} completata. Clicca per continuare con la parte ${partIndex+2}.`;
+              document.getElementById('continueRow').style.display = 'block';
+              S.currentPart = partIndex + 1;
+            }
           }
-        } catch(parseErr) { /* skip malformed lines */ }
+        } catch(e) { rb.textContent += '\n❌ ' + e.message; }
       }
     }
 
-    // If stream ended without done signal = token limit reached
-    if (!S.result && accumulated) {
-      S.result = accumulated;
-      rb.textContent = accumulated + '\n\n⚠️ Testo troncato: il libro è molto lungo. Gli appunti coprono i primi capitoli. Per avere tutto, carica il libro a sezioni.';
-      ra.style.display = 'flex';
-      renderChaps();
-    }
   } catch(e) {
-    rb.textContent = '❌ Errore: ' + e.message;
-    rb.style.display = 'block';
+    rb.textContent = (rb.textContent || '') + '\n\n❌ Errore: ' + e.message;
   } finally {
     ld.classList.remove('on');
   }
+}
+
+// Build display with running index header
+function buildDisplay(partText, partIndex) {
+  const header = S.totalParts > 1
+    ? `📋 INDICE PARTI\n${S.chunks.map((_,i) => `  ${i+1}. Parte ${i+1}${i < partIndex ? ' ✅' : i === partIndex ? ' ⏳' : ''}`).join('\n')}\n\n${'─'.repeat(50)}\n\n`
+    : '';
+  const prev = S.result ? S.result + '\n\n' + '─'.repeat(50) + '\n\n' : '';
+  return header + prev + partText;
+}
+
+function buildFinalDisplay() {
+  if (S.totalParts === 1) return S.result;
+
+  // Build proper index from result
+  const sections = S.result.split(/\n{2,}(?===\s)/);
+  const index = `📋 INDICE RIASSUNTI\n${'='.repeat(30)}\n${sections.map((_,i) => `  Parte ${i+1}`).join('\n')}\n\n${'='.repeat(50)}\n\n`;
+  return index + S.result;
 }
 
 function copyRes() { navigator.clipboard.writeText(S.result).then(()=>alert('Copiato! ✓')); }
