@@ -54,95 +54,112 @@ export default async function handler(req, res) {
       const fileNameMatch = part.headers.match(/filename="([^"]+)"/);
       if (!nameMatch) continue;
       if (nameMatch[1] === "preferences") prefs = JSON.parse(part.data.toString());
-      else if (nameMatch[1] === "file" && fileNameMatch) { fileName = fileNameMatch[1].toLowerCase(); fileData = part.data; }
+      else if (nameMatch[1] === "file" && fileNameMatch) {
+        fileName = fileNameMatch[1].toLowerCase();
+        fileData = part.data;
+      }
     }
 
     if (!fileData) return res.status(400).json({ error: "Nessun file caricato" });
 
     const lengthInstructions = {
-      short:  "Il riassunto deve coprire il 20% del contenuto: almeno 2-3 paragrafi per ogni capitolo/sezione.",
-      medium: "Il riassunto deve coprire il 40% del contenuto: almeno 4-6 paragrafi per ogni capitolo/sezione con tutti i concetti chiave.",
-      long:   "Il riassunto deve coprire il 60% del contenuto: tratta ogni capitolo/sezione in modo esaustivo con paragrafi dettagliati e definizioni complete."
+      short:  "Copri il 20% del contenuto: 2-3 paragrafi per ogni capitolo/sezione.",
+      medium: "Copri il 40% del contenuto: 4-6 paragrafi per ogni capitolo con tutti i concetti chiave.",
+      long:   "Copri il 60% del contenuto: tratta ogni capitolo in modo esaustivo con definizioni complete."
     }[prefs.length || "medium"];
 
     const styleNote = {
-      semplice:      "Linguaggio chiaro e semplice, adatto a studenti al primo anno.",
-      universitario: "Linguaggio tecnico e preciso per esami universitari avanzati.",
-      esempi:        "Spiega ogni concetto con esempi concreti e analogie."
+      semplice:      "Linguaggio chiaro per studenti al primo anno.",
+      universitario: "Linguaggio tecnico preciso per esami universitari.",
+      esempi:        "Spiega ogni concetto con esempi concreti."
     }[prefs.style || "semplice"];
 
     const outputParts = [];
 
-    if (prefs.summary) outputParts.push(`== SEZIONE 1: RIASSUNTO COMPLETO ==
-REGOLA: ${lengthInstructions} Stile: ${styleNote}
-Struttura capitolo per capitolo seguendo il testo originale.
-Per ogni capitolo scrivi il titolo poi PARAGRAFI DI TESTO CONTINUO E DENSO (non elenchi puntati striminziti).
-Questo deve essere un vero strumento di studio.`);
+    if (prefs.summary) outputParts.push(`== RIASSUNTO ==
+${lengthInstructions} ${styleNote}
+Struttura CAPITOLO PER CAPITOLO. Per ogni capitolo: titolo + paragrafi di testo continuo e denso (NON elenchi striminziti).`);
 
-    if (prefs.mindmap) outputParts.push(`== SEZIONE 1: MAPPA CONCETTUALE COMPLETA ==
-REGOLA: ${lengthInstructions.replace('riassunto','mappa')} Stile: ${styleNote}
-Capitolo per capitolo, usa: → concetti principali / • sotto-concetti / ◦ dettagli
-Ogni nodo deve avere una breve spiegazione, non solo parole chiave.`);
+    if (prefs.mindmap) outputParts.push(`== MAPPA CONCETTUALE ==
+${lengthInstructions} ${styleNote}
+Capitolo per capitolo. Usa: → concetti principali / • sotto-concetti / ◦ dettagli con breve spiegazione.`);
 
-    if (prefs.chapters) outputParts.push(`== SEZIONE 2: CAPITOLI ==
-Elenca i capitoli/argomenti principali.
-OBBLIGATORIO — ultima riga di questa sezione, esattamente così:
-{"chapters":["Capitolo 1","Capitolo 2","Capitolo 3"]}`);
+    if (prefs.chapters) outputParts.push(`== CAPITOLI ==
+Elenca i capitoli principali. Ultima riga di questa sezione, esattamente:
+{"chapters":["Cap 1","Cap 2","Cap 3"]}`);
 
-    const diffNote = { facile:"semplici sui concetti base", medio:"di media difficoltà", difficile:"impegnative e ragionate" }[prefs.quiz_diff || "medio"];
-    const scopeNote = { generale:"sull intero contenuto", capitolo:"2-3 domande per ogni capitolo organizzate per capitolo", paragrafo:"specifiche per ogni sezione del testo" }[prefs.quiz_scope || "capitolo"];
-    outputParts.push(`== SEZIONE 3: QUIZ (${prefs.quiz_count || 10} domande) ==
+    const diffNote = { facile:"semplici", medio:"media difficoltà", difficile:"impegnative" }[prefs.quiz_diff || "medio"];
+    const scopeNote = { generale:"sull intero contenuto", capitolo:"2-3 per ogni capitolo", paragrafo:"specifiche per ogni sezione" }[prefs.quiz_scope || "capitolo"];
+    outputParts.push(`== QUIZ (${prefs.quiz_count || 10} domande) ==
 Domande a scelta multipla ${diffNote}, ${scopeNote}.
-Formato per ogni domanda:
 DOMANDA N: [testo]
-A) [opzione]
-B) [opzione]
-C) [opzione]
-D) [opzione]
+A) B) C) D)
 RISPOSTA CORRETTA: [lettera]
-SPIEGAZIONE: [spiegazione dettagliata]
+SPIEGAZIONE: [testo]
 ---`);
 
-    const examTypeNote = { aperte:"domande aperte da esame scritto", miste:"mix aperte + vero/falso con motivazione", orale:"domande da colloquio orale con controdomande" }[prefs.exam_type || "aperte"];
-    outputParts.push(`== SEZIONE 4: SIMULAZIONE ESAME (${prefs.exam_count || 3} domande) ==
-${examTypeNote} come in un vero esame universitario.
+    const examTypeNote = { aperte:"domande aperte", miste:"mix aperte + vero/falso", orale:"stile colloquio orale" }[prefs.exam_type || "aperte"];
+    outputParts.push(`== SIMULAZIONE ESAME (${prefs.exam_count || 3} domande) ==
+${examTypeNote} da esame universitario.
 DOMANDA ESAME N: [testo]
-RISPOSTA MODELLO: [risposta completa come la darebbe uno studente preparato]
+RISPOSTA MODELLO: [risposta completa]
 ---`);
 
-    const prompt = `Sei un tutor universitario esperto. ${styleNote}
-
-PRODUCE OUTPUT COMPLETI E CORPOSI. Gli appunti devono essere UTILI allo studio — non fare riassunti di una riga per capitolo.
+    const prompt = `Sei un tutor universitario. ${styleNote}
+Produci output CORPOSI e UTILI. Non fare riassunti di una riga per capitolo.
 
 ${outputParts.join("\n\n")}`;
 
     let messageContent;
     if (fileName.endsWith(".pdf")) {
-      messageContent = [{ type:"document", source:{ type:"base64", media_type:"application/pdf", data:fileData.toString("base64") } }, { type:"text", text:prompt }];
+      messageContent = [
+        { type: "document", source: { type: "base64", media_type: "application/pdf", data: fileData.toString("base64") } },
+        { type: "text", text: prompt }
+      ];
     } else if (fileName.endsWith(".txt") || fileName.endsWith(".md")) {
-      messageContent = `${prompt}\n\n== TESTO ==\n${fileData.toString("utf8").substring(0,90000)}`;
+      messageContent = `${prompt}\n\n== TESTO ==\n${fileData.toString("utf8").substring(0, 90000)}`;
     } else if (fileName.endsWith(".docx")) {
-      messageContent = `${prompt}\n\n== TESTO ==\n${fileData.toString("utf8").replace(/<[^>]+>/g," ").replace(/\s+/g," ").substring(0,60000)}`;
+      messageContent = `${prompt}\n\n== TESTO ==\n${fileData.toString("utf8").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").substring(0, 60000)}`;
     } else {
       const ext = fileName.split(".").pop();
-      const mt = { jpg:"image/jpeg", jpeg:"image/jpeg", png:"image/png", webp:"image/webp" }[ext] || "image/jpeg";
-      messageContent = [{ type:"image", source:{ type:"base64", media_type:mt, data:fileData.toString("base64") } }, { type:"text", text:prompt }];
+      const mt = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp" }[ext] || "image/jpeg";
+      messageContent = [
+        { type: "image", source: { type: "base64", media_type: mt, data: fileData.toString("base64") } },
+        { type: "text", text: prompt }
+      ];
     }
 
-    const response = await client.messages.create({
+    // Use streaming to avoid Vercel 504 timeout
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    let fullText = "";
+
+    const stream = client.messages.stream({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 7000,
-      messages: [{ role:"user", content:messageContent }]
+      messages: [{ role: "user", content: messageContent }]
     });
 
-    const resultText = response.content[0].text;
+    for await (const event of stream) {
+      if (event.type === "content_block_delta" && event.delta?.type === "text_delta") {
+        fullText += event.delta.text;
+        res.write(`data: ${JSON.stringify({ chunk: event.delta.text })}\n\n`);
+      }
+    }
+
+    // Extract chapters
     let chapters = [];
-    const match = resultText.match(/\{"chapters":\s*\[.*?\]\}/s);
+    const match = fullText.match(/\{"chapters":\s*\[.*?\]\}/s);
     if (match) { try { chapters = JSON.parse(match[0]).chapters; } catch {} }
 
-    res.json({ result: resultText, chapters });
+    res.write(`data: ${JSON.stringify({ done: true, chapters })}\n\n`);
+    res.end();
+
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: e.message });
+    res.write(`data: ${JSON.stringify({ error: e.message })}\n\n`);
+    res.end();
   }
 }
