@@ -94,9 +94,11 @@
       background: var(--paper);
       border: none;
       border-right: 1px solid var(--border);
-      cursor: default;
+      cursor: pointer;
       transition: all 0.2s;
     }
+    .step-btn.done { cursor: pointer; }
+    .step-btn.done:hover { background: var(--cream); color: var(--ink); }
 
     .step-btn:last-child { border-right: none; }
     .step-btn.active { background: var(--ink); color: var(--cream); }
@@ -483,11 +485,11 @@
   </header>
 
   <nav class="steps-nav">
-    <div class="step-btn active" id="sp1">① File</div>
-    <div class="step-btn" id="sp2">② Configura</div>
-    <div class="step-btn" id="sp3">③ Appunti</div>
-    <div class="step-btn" id="sp4">④ Piano</div>
-    <div class="step-btn" id="sp5">⑤ Quiz</div>
+    <div class="step-btn active" id="sp1" onclick="goTo(1)">① File</div>
+    <div class="step-btn" id="sp2" onclick="goTo(2)">② Configura</div>
+    <div class="step-btn" id="sp3" onclick="goTo(3)">③ Appunti</div>
+    <div class="step-btn" id="sp4" onclick="goTo(4)">④ Piano</div>
+    <div class="step-btn" id="sp5" onclick="goTo(5)">⑤ Quiz</div>
   </nav>
 
   <!-- STEP 1 -->
@@ -603,11 +605,12 @@
   <!-- STEP 3 -->
   <div class="card" id="s3">
     <div class="card-title">✨ I tuoi appunti</div>
-    <div class="loading" id="ld3"><div class="spinner"></div> Claude sta elaborando il file…</div>
-    <div id="resultBox" class="result-box" style="display:none;"></div>
+    <div class="loading" id="ld3"><div class="spinner"></div> Claude sta elaborando il file… (può richiedere 20-30 secondi)</div>
+    <div id="resultBox" class="result-box" style="display:none; max-height:600px;"></div>
     <div class="gap"></div>
     <div class="row" id="res-actions" style="display:none;">
-      <button class="btn btn-ghost" onclick="copyRes()">📋 Copia</button>
+      <button class="btn btn-ghost" onclick="copyRes()">📋 Copia testo</button>
+      <button class="btn btn-ghost" onclick="downloadResTxt()">⬇️ Scarica .txt</button>
       <button class="btn btn-primary" onclick="goTo(4)">Piano di studio →</button>
       <button class="btn btn-ghost" onclick="goTo(5)">Quiz →</button>
     </div>
@@ -650,31 +653,45 @@
   <div class="card" id="s5">
     <div class="card-title">🧠 Quiz & Simulazione esame</div>
 
-    <div class="section-label">Argomento</div>
-    <div style="margin-bottom:1rem;">
-      <input type="text" id="quizTopic" placeholder="Es: La rivoluzione francese, Le equazioni differenziali…"/>
+    <!-- Quiz per capitolo -->
+    <div id="chap-quiz-section" style="display:none; margin-bottom:1.5rem;">
+      <div class="section-label">📑 Quiz per capitolo</div>
+      <div id="chap-quiz-list" style="display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:1rem;"></div>
     </div>
 
-    <div class="section-label">Modalità</div>
-    <div class="pills" style="margin-bottom:1rem;">
-      <div class="pill on" onclick="pill(this,'quiz_mode','quiz')">❓ Quiz a scelta multipla</div>
-      <div class="pill" onclick="pill(this,'quiz_mode','exam')">📝 Simulazione esame aperta</div>
-    </div>
-
-    <div id="qc2-row" style="margin-bottom:1.25rem;">
-      <div class="section-label">Numero domande</div>
-      <div class="pills">
-        <div class="pill on" onclick="pill(this,'quiz_count2','5')">5</div>
-        <div class="pill" onclick="pill(this,'quiz_count2','10')">10</div>
+    <!-- Quiz su argomento libero -->
+    <div style="border-top:1px solid var(--border); padding-top:1.25rem;">
+      <div class="section-label">❓ Quiz su argomento specifico</div>
+      <div style="margin-bottom:0.75rem;">
+        <input type="text" id="quizTopic" placeholder="Es: La struttura del DNA, La Rivoluzione Francese…"/>
       </div>
-    </div>
 
-    <button class="btn btn-primary" onclick="doQuiz()">Genera 🎲</button>
+      <div class="section-label">Modalità</div>
+      <div class="pills" style="margin-bottom:0.75rem;">
+        <div class="pill on" onclick="pill(this,'quiz_mode','quiz')">❓ Quiz a scelta multipla</div>
+        <div class="pill" onclick="pill(this,'quiz_mode','exam')">📝 Simulazione esame aperta</div>
+      </div>
+
+      <div id="qc2-row" style="margin-bottom:1rem;">
+        <div class="section-label">Numero domande</div>
+        <div class="pills">
+          <div class="pill on" onclick="pill(this,'quiz_count2','5')">5</div>
+          <div class="pill" onclick="pill(this,'quiz_count2','10')">10</div>
+          <div class="pill" onclick="pill(this,'quiz_count2','15')">15</div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="doQuiz()">Genera 🎲</button>
+    </div>
 
     <div class="loading" id="ld5" style="margin-top:1rem;"><div class="spinner"></div> Sto preparando le domande…</div>
     <div class="gap"></div>
     <div id="quizWrap"></div>
     <div id="quizScore" style="display:none; margin-top:1rem;"></div>
+    <div class="row" id="quiz-download-row" style="display:none; margin-top:1rem;">
+      <button class="btn btn-ghost" onclick="copyQuiz()">📋 Copia</button>
+      <button class="btn btn-ghost" onclick="downloadQuiz()">⬇️ Scarica .txt</button>
+    </div>
 
     <div class="gap"></div>
     <button class="btn btn-ghost" onclick="goTo(4)">← Piano di studio</button>
@@ -741,6 +758,8 @@ function pill(el, k, v) {
   el.closest('.pills').querySelectorAll('.pill').forEach(p => p.classList.remove('on'));
   el.classList.add('on');
   S[k] = v;
+  // also save to prefs if it's a prefs key
+  if (k in S.prefs) S.prefs[k] = v;
   if (k==='quiz_mode') document.getElementById('qc2-row').style.display = v==='quiz'?'block':'none';
 }
 
@@ -786,6 +805,14 @@ async function processFile() {
 
 function copyRes() { navigator.clipboard.writeText(S.result).then(()=>alert('Copiato! ✓')); }
 
+function downloadResTxt() {
+  const blob = new Blob([S.result], {type:'text/plain;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'appunti_studiamoci.txt';
+  a.click();
+}
+
 // ── Chapters ──────────────────────────────────────────────────────────────────
 function renderChaps() {
   const el = document.getElementById('chapList');
@@ -798,6 +825,18 @@ function renderChaps() {
       <button class="chapter-rm" onclick="rmChap(${i})">✕</button>
     </div>`
   ).join('');
+
+  // Populate quiz per capitolo buttons in step 5
+  const chapQuizSection = document.getElementById('chap-quiz-section');
+  const chapQuizList = document.getElementById('chap-quiz-list');
+  if (S.chapters.length > 0) {
+    chapQuizSection.style.display = 'block';
+    chapQuizList.innerHTML = S.chapters.map((c,i) =>
+      `<button class="pill" onclick="doQuizChapter('${c.replace(/'/g,"\\'")}', this)">${i+1}. ${c}</button>`
+    ).join('');
+  } else {
+    chapQuizSection.style.display = 'none';
+  }
 }
 
 function addChap() {
@@ -830,7 +869,15 @@ function fmtDate(s) {
 }
 
 // ── Quiz ──────────────────────────────────────────────────────────────────────
-let qData = [], qAns = {};
+let qData = [], qAns = {}, lastQuizText = '';
+
+async function doQuizChapter(chapter, btn) {
+  // Highlight selected chapter button
+  document.querySelectorAll('#chap-quiz-list .pill').forEach(p => p.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('quizTopic').value = chapter;
+  await doQuiz();
+}
 
 async function doQuiz() {
   const topic = document.getElementById('quizTopic').value.trim();
@@ -839,18 +886,46 @@ async function doQuiz() {
   document.getElementById('ld5').classList.add('on');
   document.getElementById('quizWrap').innerHTML='';
   document.getElementById('quizScore').style.display='none';
-  qData=[]; qAns={};
+  document.getElementById('quiz-download-row').style.display='none';
+  qData=[]; qAns={}; lastQuizText='';
 
-  const r = await fetch('/api/quiz', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({topic, context:S.result.substring(0,2000), num_questions:parseInt(S.quiz_count2||5), mode:S.quiz_mode})});
-  const d = await r.json();
-  document.getElementById('ld5').classList.remove('on');
-  if (d.error) { alert(d.error); return; }
+  try {
+    const r = await fetch('/api/quiz', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        topic,
+        context: S.result.substring(0,3000),
+        num_questions: parseInt(S.quiz_count2||5),
+        mode: S.quiz_mode
+      })
+    });
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    lastQuizText = d.quiz;
 
-  if (S.quiz_mode==='exam') {
-    document.getElementById('quizWrap').innerHTML = `<div class="result-box">${d.quiz}</div>`;
-  } else {
-    renderQuiz(d.quiz);
+    if (S.quiz_mode==='exam') {
+      document.getElementById('quizWrap').innerHTML = `<div class="result-box" style="max-height:500px;">${d.quiz}</div>`;
+      document.getElementById('quiz-download-row').style.display='flex';
+    } else {
+      renderQuiz(d.quiz);
+    }
+  } catch(e) {
+    document.getElementById('quizWrap').innerHTML = `<p style="color:var(--red)">❌ ${e.message}</p>`;
+  } finally {
+    document.getElementById('ld5').classList.remove('on');
   }
+}
+
+function copyQuiz() { navigator.clipboard.writeText(lastQuizText).then(()=>alert('Copiato! ✓')); }
+
+function downloadQuiz() {
+  const topic = document.getElementById('quizTopic').value.trim() || 'quiz';
+  const blob = new Blob([lastQuizText], {type:'text/plain;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `studiamoci_${topic.substring(0,30).replace(/\s+/g,'_')}.txt`;
+  a.click();
 }
 
 function renderQuiz(raw) {
