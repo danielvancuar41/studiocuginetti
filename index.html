@@ -508,58 +508,90 @@
   <div class="card" id="s2">
     <div class="card-title">⚙️ Come vuoi gli appunti?</div>
 
-    <div class="section-label">Tipo di output</div>
-    <div class="opts-grid">
-      <div class="opt on" id="o-summary" onclick="tog(this,'summary')">
+    <!-- Tipo appunti: mutually exclusive summary vs mindmap -->
+    <div class="section-label">Tipo di appunti</div>
+    <div class="opts-grid" style="grid-template-columns:1fr 1fr; margin-bottom:1rem;">
+      <div class="opt on" id="o-summary" onclick="togExclusive(this,'summary','mindmap')">
         <span class="opt-icon">📝</span>
         <span class="opt-name">Riassunto</span>
-        <span class="opt-desc">Sintesi del contenuto</span>
+        <span class="opt-desc">Sintesi scritta</span>
       </div>
-      <div class="opt" id="o-mindmap" onclick="tog(this,'mindmap')">
+      <div class="opt" id="o-mindmap" onclick="togExclusive(this,'mindmap','summary')">
         <span class="opt-icon">🗺️</span>
         <span class="opt-name">Mappa concettuale</span>
         <span class="opt-desc">Struttura ad albero</span>
       </div>
-      <div class="opt on" id="o-chapters" onclick="tog(this,'chapters')">
-        <span class="opt-icon">📑</span>
-        <span class="opt-name">Dividi per capitoli</span>
-        <span class="opt-desc">Per il piano di studio</span>
-      </div>
-      <div class="opt" id="o-quiz" onclick="tog(this,'quiz')">
-        <span class="opt-icon">❓</span>
-        <span class="opt-name">Quiz</span>
-        <span class="opt-desc">Domande con risposta</span>
-      </div>
-      <div class="opt" id="o-exam_sim" onclick="tog(this,'exam_sim')">
-        <span class="opt-icon">🎯</span>
-        <span class="opt-name">Simulazione esame</span>
-        <span class="opt-desc">Domande aperte</span>
-      </div>
     </div>
 
-    <div id="len-row">
-      <div class="section-label">Lunghezza riassunto</div>
-      <div class="pills">
-        <div class="pill on" onclick="pill(this,'length','short')">Breve</div>
-        <div class="pill" onclick="pill(this,'length','medium')">Medio</div>
-        <div class="pill" onclick="pill(this,'length','long')">Dettagliato</div>
-      </div>
+    <!-- Lunghezza (sempre visibile) -->
+    <div class="section-label">Lunghezza</div>
+    <div class="pills" style="margin-bottom:1.25rem;">
+      <div class="pill on" onclick="pill(this,'length','short')">Breve</div>
+      <div class="pill" onclick="pill(this,'length','medium')">Medio</div>
+      <div class="pill" onclick="pill(this,'length','long')">Dettagliato</div>
     </div>
 
-    <div id="qcount-row" style="display:none">
-      <div class="section-label">Domande quiz</div>
-      <div class="pills">
-        <div class="pill on" onclick="pill(this,'quiz_count','5')">5</div>
-        <div class="pill" onclick="pill(this,'quiz_count','10')">10</div>
-        <div class="pill" onclick="pill(this,'quiz_count','15')">15</div>
-      </div>
-    </div>
-
+    <!-- Stile -->
     <div class="section-label">Stile di spiegazione</div>
-    <div class="pills" style="margin-bottom:1.5rem;">
+    <div class="pills" style="margin-bottom:1.25rem;">
       <div class="pill on" onclick="pill(this,'style','semplice')">🧒 Semplice</div>
       <div class="pill" onclick="pill(this,'style','universitario')">🎓 Universitario</div>
       <div class="pill" onclick="pill(this,'style','esempi')">💡 Con esempi</div>
+    </div>
+
+    <!-- Dividi per capitoli -->
+    <div class="opts-grid" style="grid-template-columns:1fr; margin-bottom:1.25rem;">
+      <div class="opt on" id="o-chapters" onclick="tog(this,'chapters')">
+        <span class="opt-icon">📑</span>
+        <span class="opt-name">Dividi per capitoli</span>
+        <span class="opt-desc">Necessario per generare il piano di studio</span>
+      </div>
+    </div>
+
+    <!-- QUIZ — sempre presente -->
+    <div style="border-top:1px solid var(--border); padding-top:1.25rem; margin-bottom:1.25rem;">
+      <div class="section-label">❓ Quiz di autovalutazione</div>
+
+      <div class="section-label" style="margin-top:0.5rem;">Quantità domande</div>
+      <div class="pills" style="margin-bottom:0.75rem;">
+        <div class="pill" onclick="pill(this,'quiz_count','5')">5</div>
+        <div class="pill on" onclick="pill(this,'quiz_count','10')">10</div>
+        <div class="pill" onclick="pill(this,'quiz_count','20')">20</div>
+        <div class="pill" onclick="pill(this,'quiz_count','30')">30</div>
+      </div>
+
+      <div class="section-label">Difficoltà</div>
+      <div class="pills" style="margin-bottom:0.75rem;">
+        <div class="pill on" onclick="pill(this,'quiz_diff','facile')">🟢 Facile</div>
+        <div class="pill" onclick="pill(this,'quiz_diff','medio')">🟡 Medio</div>
+        <div class="pill" onclick="pill(this,'quiz_diff','difficile')">🔴 Difficile</div>
+      </div>
+
+      <div class="section-label">Granularità</div>
+      <div class="pills">
+        <div class="pill on" onclick="pill(this,'quiz_scope','generale')">📚 Generale</div>
+        <div class="pill" onclick="pill(this,'quiz_scope','capitolo')">📑 Per capitolo</div>
+        <div class="pill" onclick="pill(this,'quiz_scope','paragrafo')">🔍 Per paragrafo</div>
+      </div>
+    </div>
+
+    <!-- SIMULAZIONE ESAME — sempre presente -->
+    <div style="border-top:1px solid var(--border); padding-top:1.25rem; margin-bottom:1.5rem;">
+      <div class="section-label">🎯 Simulazione esame</div>
+
+      <div class="section-label" style="margin-top:0.5rem;">Numero domande aperte</div>
+      <div class="pills" style="margin-bottom:0.75rem;">
+        <div class="pill on" onclick="pill(this,'exam_count','3')">3</div>
+        <div class="pill" onclick="pill(this,'exam_count','5')">5</div>
+        <div class="pill" onclick="pill(this,'exam_count','10')">10</div>
+      </div>
+
+      <div class="section-label">Tipologia domande</div>
+      <div class="pills">
+        <div class="pill on" onclick="pill(this,'exam_type','aperte')">✍️ Domande aperte</div>
+        <div class="pill" onclick="pill(this,'exam_type','miste')">🔀 Miste (aperte + vero/falso)</div>
+        <div class="pill" onclick="pill(this,'exam_type','orale')">🎤 Stile orale</div>
+      </div>
     </div>
 
     <div class="row">
@@ -657,8 +689,10 @@
 // ── State ─────────────────────────────────────────────────────────────────────
 const S = {
   file: null,
-  prefs: { summary:true, mindmap:false, chapters:true, quiz:false, exam_sim:false,
-           length:'short', style:'semplice', quiz_count:'5' },
+  prefs: { summary:true, mindmap:false, chapters:true,
+           length:'short', style:'semplice',
+           quiz_count:'10', quiz_diff:'facile', quiz_scope:'generale',
+           exam_count:'3', exam_type:'aperte' },
   result: '',
   chapters: [],
   quiz_mode: 'quiz',
@@ -692,8 +726,15 @@ function pick(f) { S.file = f; fn.textContent = '✓ ' + f.name; }
 function tog(el, k) {
   el.classList.toggle('on');
   S.prefs[k] = el.classList.contains('on');
-  if (k==='summary') document.getElementById('len-row').style.display = S.prefs.summary?'block':'none';
-  if (k==='quiz') document.getElementById('qcount-row').style.display = S.prefs.quiz?'block':'none';
+}
+
+function togExclusive(el, k, other) {
+  // Toggle this one on, turn the other off
+  el.classList.add('on');
+  S.prefs[k] = true;
+  const otherEl = document.getElementById('o-' + other);
+  if (otherEl) otherEl.classList.remove('on');
+  S.prefs[other] = false;
 }
 
 function pill(el, k, v) {
